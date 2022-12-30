@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.util.Base64;
 import java.io.IOException;
 import java.io.InputStream;
@@ -77,15 +78,39 @@ class Serializer {
             final ContentResolver contentResolver,
             final ClipData clipData)
             throws JSONException {
-        if (clipData != null) {
-            final int clipItemCount = clipData.getItemCount();
-            JSONObject[] items = new JSONObject[clipItemCount];
-            for (int i = 0; i < clipItemCount; i++) {
-                items[i] = toJSONObject(contentResolver, clipData.getItemAt(i).getUri());
-            }
-            return new JSONArray(items);
+        if (clipData == null) {
+            return null;
         }
-        return null;
+        final int clipItemCount = clipData.getItemCount();
+        JSONObject[] items = new JSONObject[clipItemCount];
+        for (int i = 0; i < clipItemCount; i++) {
+            if (clipData.getItemAt(i).getUri() != null) {
+                items[i] = toJSONObject(
+                    contentResolver,
+                    clipData.getItemAt(i).getUri(),
+                    null
+                );
+            } else if (clipData.getItemAt(i).getText() != null) {
+                items[i] = toJSONObject(
+                    contentResolver,
+                    null,
+                    clipData.getItemAt(i).getText().toString()
+                );
+            } else if (clipData.getItemAt(i).getHtmlText() != null) {
+                items[i] = toJSONObject(
+                    contentResolver,
+                    null,
+                    clipData.getItemAt(i).getHtmlText()
+                );
+            } else {
+                items[i] = toJSONObject(
+                    contentResolver,
+                    null,
+                    clipData.getItemAt(i).toString()
+                );
+            }
+        }
+        return new JSONArray(items);
     }
 
     /** Extract the list of items from the intent's extra stream.
@@ -99,8 +124,10 @@ class Serializer {
             return null;
         }
         final JSONObject item = toJSONObject(
-                contentResolver,
-                (Uri) extras.get(Intent.EXTRA_STREAM));
+            contentResolver,
+            (Uri) extras.get(Intent.EXTRA_STREAM),
+            null
+        );
         if (item == null) {
             return null;
         }
@@ -120,8 +147,10 @@ class Serializer {
             return null;
         }
         final JSONObject item = toJSONObject(
-                contentResolver,
-                uri);
+            contentResolver,
+            uri,
+            null
+        );
         if (item == null) {
             return null;
         }
@@ -140,16 +169,23 @@ class Serializer {
      */
     public static JSONObject toJSONObject(
             final ContentResolver contentResolver,
-            final Uri uri)
+            final Uri uri,
+            final String text)
             throws JSONException {
-        if (uri == null) {
+        if (uri == null && text == null) {
             return null;
         }
         final JSONObject json = new JSONObject();
-        final String type = contentResolver.getType(uri);
-        json.put("type", type);
+        if (uri != null) {
+            final String type = contentResolver.getType(uri);
+            json.put("type", type);
+            json.put("path", getRealPathFromURI(contentResolver, uri));
+        } else {
+            json.put("type", "text/plain");
+            json.put("path", null);
+        }
+        json.put("text", text);
         json.put("uri", uri);
-        json.put("path", getRealPathFromURI(contentResolver, uri));
         return json;
     }
 
@@ -173,18 +209,20 @@ class Serializer {
 	public static String getRealPathFromURI(
             final ContentResolver contentResolver,
             final Uri uri) {
-		final String[] proj = { MediaStore.Images.Media.DATA };
-		final Cursor cursor = contentResolver.query(uri, proj, null, null, null);
+		final Cursor cursor = contentResolver.query(uri, null, null, null, null);
 		if (cursor == null) {
-			return "";
+			return null;
 		}
-		final int column_index = cursor.getColumnIndex(MediaStore.Images.Media.DATA);
-		if (column_index < 0) {
-			cursor.close();
-			return "";
+        cursor.moveToFirst();
+		final int data_column_index = cursor.getColumnIndex(MediaStore.Images.Media.DATA);
+        final int display_name_column_index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+        String result = null;
+        if (data_column_index >= 0) {
+            result = cursor.getString(data_column_index);
 		}
-		cursor.moveToFirst();
-		final String result = cursor.getString(column_index);
+        if (result == null && display_name_column_index >= 0) {
+            result = cursor.getString(display_name_column_index);
+        }
 		cursor.close();
 		return result;
 	}

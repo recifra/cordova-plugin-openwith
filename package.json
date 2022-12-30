@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-openwith-ci",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Cordova \"Open With\" plugin for iOS and Android",
   "cordova": {
     "id": "cordova-plugin-openwith-ci",
