@@ -30,15 +30,17 @@
 #import <UIKit/UIKit.h>
 #import <Social/Social.h>
 #import "ShareViewController.h"
+#import <MobileCoreServices/MobileCoreServices.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
-@interface ShareViewController : SLComposeServiceViewController {
-    int _verbosityLevel;
+@interface ShareViewController : SLComposeServiceViewController <UIAlertViewDelegate> {
+    long _verbosityLevel;
+    NSFileManager *_fileManager;
     NSUserDefaults *_userDefaults;
-    NSString *_backURL;
 }
-@property (nonatomic) int verbosityLevel;
+@property (nonatomic) long verbosityLevel;
+@property (nonatomic,retain) NSFileManager *fileManager;
 @property (nonatomic,retain) NSUserDefaults *userDefaults;
-@property (nonatomic,retain) NSString *backURL;
 @end
 
 /*
@@ -52,9 +54,9 @@
 
 @implementation ShareViewController
 
+@synthesize fileManager = _fileManager;
 @synthesize verbosityLevel = _verbosityLevel;
 @synthesize userDefaults = _userDefaults;
-@synthesize backURL = _backURL;
 
 - (void) log:(int)level message:(NSString*)message {
     if (level >= self.verbosityLevel) {
@@ -67,9 +69,11 @@
 - (void) error:(NSString*)message { [self log:VERBOSITY_ERROR message:message]; }
 
 - (void) setup {
+    [self debug:@"[setup]"];
+
+    self.fileManager = [NSFileManager defaultManager];
     self.userDefaults = [[NSUserDefaults alloc] initWithSuiteName:SHAREEXT_GROUP_IDENTIFIER];
     self.verbosityLevel = [self.userDefaults integerForKey:@"verbosityLevel"];
-    [self debug:@"[setup]"];
 }
 
 - (BOOL) isContentValid {
@@ -117,78 +121,179 @@
     }
 }
 
-- (void) didSelectPost {
+- (void) viewWillAppear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    self.view.hidden = YES;
+}
+
+- (void) viewDidAppear:(BOOL)animated {
+    [self.view endEditing:YES];
 
     [self setup];
-    [self debug:@"[didSelectPost]"];
+    [self debug:@"[viewDidAppear]"];
+    NSArray<NSItemProvider *> *attachments = ((NSExtensionItem*)self.extensionContext.inputItems[0]).attachments;
+    __block unsigned long remainingAttachments = attachments.count;
+    NSMutableArray *items = [[NSMutableArray alloc] init];
+    NSDictionary *results = @{
+        @"items": items,
+    };
 
-    // This is called after the user selects Post. Do the upload of contentText and/or NSExtensionContext attachments.
-    for (NSItemProvider* itemProvider in ((NSExtensionItem*)self.extensionContext.inputItems[0]).attachments) {
-        
-        if ([itemProvider hasItemConformingToTypeIdentifier:SHAREEXT_UNIFORM_TYPE_IDENTIFIER]) {
+    for (NSItemProvider* itemProvider in attachments) {
+        [self debug:[NSString stringWithFormat:@"item provider registered indentifiers = %@", itemProvider.registeredTypeIdentifiers]];
+
+        // IMAGE
+        if ([itemProvider hasItemConformingToTypeIdentifier:@"public.image"]) {
             [self debug:[NSString stringWithFormat:@"item provider = %@", itemProvider]];
-            
-            [itemProvider loadItemForTypeIdentifier:SHAREEXT_UNIFORM_TYPE_IDENTIFIER options:nil completionHandler: ^(id<NSSecureCoding> item, NSError *error) {
-                
-                NSData *data = [[NSData alloc] init];
-                if([(NSObject*)item isKindOfClass:[NSURL class]]) {
-                    data = [NSData dataWithContentsOfURL:(NSURL*)item];
-                }
-                if([(NSObject*)item isKindOfClass:[UIImage class]]) {
-                    data = UIImagePNGRepresentation((UIImage*)item);
+
+            [itemProvider loadItemForTypeIdentifier:@"public.image" options:nil completionHandler: ^(id<NSSecureCoding> data, NSError *error) {
+                NSString *fileUrl = @"";
+                NSString *path = @"";
+                NSString *uti = @"public.image";
+                NSString *mimeType = @"";
+
+                if([(NSObject*)data isKindOfClass:[UIImage class]]) {
+                    UIImage* image = (UIImage*) data;
+
+                    if (image != nil) {
+                        NSURL *targetUrl = [[self.fileManager containerURLForSecurityApplicationGroupIdentifier:SHAREEXT_GROUP_IDENTIFIER] URLByAppendingPathComponent:@"share.png"];
+                        NSData *binaryImageData = UIImagePNGRepresentation(image);
+
+                        [binaryImageData writeToFile:[targetUrl.absoluteString substringFromIndex:6] atomically:YES];
+                        fileUrl = targetUrl.absoluteString;
+                        path = targetUrl.path;
+                        mimeType = @"image/png";
+                    }
                 }
 
-                NSString *suggestedName = @"";
-                if ([itemProvider respondsToSelector:NSSelectorFromString(@"getSuggestedName")]) {
-                    suggestedName = [itemProvider valueForKey:@"suggestedName"];
+                if ([(NSObject*)data isKindOfClass:[NSURL class]]) {
+                    NSURL* item = (NSURL*) data;
+                    NSString *registeredType = nil;
+
+                    NSURL* fileUrlObject = [self saveFileToAppGroupFolder:item];
+                    fileUrl = [fileUrlObject absoluteString];
+                    path = item.path;
+
+                    if ([itemProvider.registeredTypeIdentifiers count] > 0) {
+                        registeredType = itemProvider.registeredTypeIdentifiers[0];
+                    } else {
+                        registeredType = uti;
+                    }
+
+                    mimeType = [self mimeTypeFromUti:registeredType];
                 }
 
-                NSString *uti = @"";
-                NSArray<NSString *> *utis = [NSArray new];
+                NSDictionary *dict = @{
+                    @"text" : self.contentText,
+                    @"uri" : fileUrl,
+                    @"path" : path,
+                    @"type" : mimeType
+                };
+
+                [items addObject:dict];
+
+                --remainingAttachments;
+                if (remainingAttachments == 0) {
+                    [self sendResults:results];
+                }
+            }];
+        }
+        // FILE
+        else if ([itemProvider hasItemConformingToTypeIdentifier:@"public.url"]) {
+            [self debug:[NSString stringWithFormat:@"item provider = %@", itemProvider]];
+
+            [itemProvider loadItemForTypeIdentifier:@"public.url" options:nil completionHandler: ^(NSURL* item, NSError *error) {
+                [self debug:[NSString stringWithFormat:@"public.url = %@", item]];
+                NSString *uti = @"public.url";
+
                 if ([itemProvider.registeredTypeIdentifiers count] > 0) {
                     uti = itemProvider.registeredTypeIdentifiers[0];
-                    utis = itemProvider.registeredTypeIdentifiers;
                 }
-                else {
-                    uti = SHAREEXT_UNIFORM_TYPE_IDENTIFIER;
+
+                NSString* uri = @"";
+                NSString* path = @"";
+                NSString* text = @"";
+
+                NSString *mimeType =  [self mimeTypeFromUti:uti];
+                
+                if ([self.contentText length] == 0) {
+                    NSURL* fileUrlObject = [self saveFileToAppGroupFolder:item];
+                    path = item.path;
+                    uri = [fileUrlObject absoluteString];
+                } else if (![self.contentText isEqualToString:[item absoluteString]]) {
+                    text = [NSString stringWithFormat:@"%@ %@", self.contentText, [item absoluteString]];
                 }
                 NSDictionary *dict = @{
-                    @"text": self.contentText,
-                    @"backURL": self.backURL,
-                    @"data" : data,
-                    @"uti": uti,
-                    @"utis": utis,
-                    @"name": suggestedName
+                    @"type" : mimeType,
+                    @"path" : path,
+                    @"text" : text,
+                    @"uri" : uri
                 };
-                [self.userDefaults setObject:dict forKey:@"image"];
-                [self.userDefaults synchronize];
 
-                // Emit a URL that opens the cordova app
-                NSString *url = [NSString stringWithFormat:@"%@://image", SHAREEXT_URL_SCHEME];
+                [items addObject:dict];
 
-                // Not allowed:
-                // [[UIApplication sharedApplication] openURL:[NSURL URLWithString:url]];
-                
-                // Crashes:
-                // [self.extensionContext openURL:[NSURL URLWithString:url] completionHandler:nil];
-                
-                // From https://stackoverflow.com/a/25750229/2343390
-                // Reported not to work since iOS 8.3
-                // NSURLRequest *request = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:url]];
-                // [self.webView loadRequest:request];
-                
-                [self openURL:[NSURL URLWithString:url]];
-
-                // Inform the host that we're done, so it un-blocks its UI.
-                [self.extensionContext completeRequestReturningItems:@[] completionHandler:nil];
+                --remainingAttachments;
+                if (remainingAttachments == 0) {
+                    [self sendResults:results];
+                }
             }];
+        }
+        // TEXT
+        else if ([itemProvider hasItemConformingToTypeIdentifier:@"public.plain-text"]) {
+            [self debug:[NSString stringWithFormat:@"item provider = %@", itemProvider]];
 
-            return;
+            [itemProvider loadItemForTypeIdentifier:@"public.plain-text" options:nil completionHandler: ^(NSString* item, NSError *error) {
+                [self debug:[NSString stringWithFormat:@"public.plain-text = %@", item]];
+                NSString *uti = @"public.plain-text";
+
+                if ([itemProvider.registeredTypeIdentifiers count] > 0) {
+                    uti = itemProvider.registeredTypeIdentifiers[0];
+                }
+
+                NSString *mimeType =  [self mimeTypeFromUti:uti];
+                NSDictionary *dict = @{
+                    @"type" : mimeType,
+                    @"path" : @"",
+                    @"text" : self.contentText,
+                    @"uri" : @""
+                };
+
+                [items addObject:dict];
+
+                --remainingAttachments;
+                if (remainingAttachments == 0) {
+                    [self sendResults:results];
+                }
+            }];
+        }
+        // Unhandled data type
+        else {
+            [self debug:[NSString stringWithFormat:@"Unhandled data type provider = %@", itemProvider]];
+            --remainingAttachments;
+            if (remainingAttachments == 0) {
+                [self sendResults:results];
+            }
         }
     }
+}
 
-    // Inform the host that we're done, so it un-blocks its UI.
-    [self.extensionContext completeRequestReturningItems:@[] completionHandler:nil];
+- (void) sendResults: (NSDictionary*)results {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        [self debug:[NSString stringWithFormat:@"Result sending %li items", [results[@"items"] count]]];
+        [self.userDefaults setObject:results forKey:@"shared"];
+        [self.userDefaults synchronize];
+
+        // Emit a URL that opens the cordova app
+        NSString *url = [NSString stringWithFormat:@"%@://shared", SHAREEXT_URL_SCHEME];
+
+        [self openURL:[NSURL URLWithString:url]];
+
+        // Inform the host that we're done, so it un-blocks its UI.
+        [self.extensionContext completeRequestReturningItems:@[] completionHandler:nil];
+    });
+}
+
+- (void) didSelectPost {
+    [self debug:@"[didSelectPost]"];
 }
 
 - (NSArray*) configurationItems {
@@ -196,58 +301,16 @@
     return @[];
 }
 
-- (NSString*) backURLFromBundleID: (NSString*)bundleId {
-    if (bundleId == nil) return nil;
-    // App Store - com.apple.AppStore
-    if ([bundleId isEqualToString:@"com.apple.AppStore"]) return @"itms-apps://";
-    // Calculator - com.apple.calculator
-    // Calendar - com.apple.mobilecal
-    // Camera - com.apple.camera
-    // Clock - com.apple.mobiletimer
-    // Compass - com.apple.compass
-    // Contacts - com.apple.MobileAddressBook
-    // FaceTime - com.apple.facetime
-    // Find Friends - com.apple.mobileme.fmf1
-    // Find iPhone - com.apple.mobileme.fmip1
-    // Game Center - com.apple.gamecenter
-    // Health - com.apple.Health
-    // iBooks - com.apple.iBooks
-    // iTunes Store - com.apple.MobileStore
-    // Mail - com.apple.mobilemail - message://
-    if ([bundleId isEqualToString:@"com.apple.mobilemail"]) return @"message://";
-    // Maps - com.apple.Maps - maps://
-    if ([bundleId isEqualToString:@"com.apple.Maps"]) return @"maps://";
-    // Messages - com.apple.MobileSMS
-    // Music - com.apple.Music
-    // News - com.apple.news - applenews://
-    if ([bundleId isEqualToString:@"com.apple.news"]) return @"applenews://";
-    // Notes - com.apple.mobilenotes - mobilenotes://
-    if ([bundleId isEqualToString:@"com.apple.mobilenotes"]) return @"mobilenotes://";
-    // Phone - com.apple.mobilephone
-    // Photos - com.apple.mobileslideshow
-    if ([bundleId isEqualToString:@"com.apple.mobileslideshow"]) return @"photos-redirect://";
-    // Podcasts - com.apple.podcasts
-    // Reminders - com.apple.reminders - x-apple-reminder://
-    if ([bundleId isEqualToString:@"com.apple.reminders"]) return @"x-apple-reminder://";
-    // Safari - com.apple.mobilesafari
-    // Settings - com.apple.Preferences
-    // Stocks - com.apple.stocks
-    // Tips - com.apple.tips
-    // Videos - com.apple.videos - videos://
-    if ([bundleId isEqualToString:@"com.apple.videos"]) return @"videos://";
-    // Voice Memos - com.apple.VoiceMemos - voicememos://
-    if ([bundleId isEqualToString:@"com.apple.VoiceMemos"]) return @"voicememos://";
-    // Wallet - com.apple.Passbook
-    // Watch - com.apple.Bridge
-    // Weather - com.apple.weather
-    return @"";
+- (NSString *) mimeTypeFromUti: (NSString*)uti {
+    if (uti == nil) { return nil; }
+    NSString *ret = [UTType typeWithIdentifier:uti].preferredMIMEType;
+    return ret == nil ? uti : ret;
 }
 
-// This is called at the point where the Post dialog is about to be shown.
-// We use it to store the _hostBundleID
-- (void) willMoveToParentViewController: (UIViewController*)parent {
-    NSString *hostBundleID = [parent valueForKey:(@"_hostBundleID")];
-    self.backURL = [self backURLFromBundleID:hostBundleID];
+- (NSURL *) saveFileToAppGroupFolder: (NSURL*)url {
+    NSURL *targetUrl = [[self.fileManager containerURLForSecurityApplicationGroupIdentifier:SHAREEXT_GROUP_IDENTIFIER] URLByAppendingPathComponent:url.lastPathComponent];
+    [self.fileManager copyItemAtURL:url toURL:targetUrl error:nil];
+    return targetUrl;
 }
 
 @end
