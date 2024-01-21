@@ -215,13 +215,13 @@ class Serializer {
 		}
         cursor.moveToFirst();
 		final int data_column_index = cursor.getColumnIndex(MediaStore.Images.Media.DATA);
-        final int display_name_column_index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+        final int displayNameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
         String result = null;
         if (data_column_index >= 0) {
             result = cursor.getString(data_column_index);
 		}
-        if (result == null && display_name_column_index >= 0) {
-            result = cursor.getString(display_name_column_index);
+        if (result == null && displayNameIndex >= 0) {
+            result = cursor.getString(displayNameIndex);
         }
 		cursor.close();
 		return result;

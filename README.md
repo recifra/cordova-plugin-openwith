@@ -10,6 +10,14 @@
 
 You'd like your app to be listed in the **Send to...** section for certain types of files, on both **Android** and **iOS**? This is THE plugin! No need to meddle into Android's manifests and iOS's plist files, it's (almost) all managed for you by a no brainer one liner installation command.
 
+This is a bit modified version of [cordova-plugin-openwith](https://github.com/j3k0/cordova-plugin-openwith) by Jean-Christophe Hoelt.
+
+#### Differences:
+
+- **Works with several types of shared data** (UTIs). Currently, URLs, text and images are supported. Types are selected by the given UTI at install
+- **Support of sharing several photos at once is supported**. By default, the maximum number is 10
+- **Does not show native UI with "Post" option**. Having two-step share (enter sharing message and then pick the receiver in the Cordova app) might be a bad user experience, so this plugin opens Cordova application immediately and passes the shared data to it. Thereby, you are expected to implement sharing UI in your Cordova app.
+
 ## Table of Contents
 
 - [Background](#background)
@@ -21,7 +29,7 @@ You'd like your app to be listed in the **Send to...** section for certain types
 
 ## Background
 
-iOS and Android each have their own ways of handing over files to an app. This plugin abstracts them behind a single and simplified interface. It does not expose all subtleties of each system, be this should be enough for 99% of people. Are you the 1% that needs more? Fork and PR if it makes sense, or [ask for help](mailto://contact@fovea.cc).
+iOS and Android each have their own ways of handing over files to an app. This plugin abstracts them behind a single and simplified interface. It does not expose all subtleties of each system, be this should be enough for 99% of people. Are you the 1% that needs more? Fork and PR if it makes sense, or [ask for help](mailto://development@recifra.com).
 
 The plugin's API mostly follows Android's terminology.
 
@@ -126,8 +134,6 @@ function setupOpenwith() {
 
       // some optional additional info
       console.log('  text: ', item.text);   // text to share alongside the item, iOS only
-      console.log('  name: ', item.name);   // suggested name of the image, iOS 11+ only
-      console.log('  utis: ', item.utis);
       console.log('  path: ', item.path);   // path on the device, generally undefined
     }
 
@@ -201,12 +207,8 @@ A data descriptor describe one file. It is a javascript object with the followin
  - `uri`: uri to the file.
    - _probably NOT a web uri, use `load()` if you want the data from this uri._
  - `type`: the mime type.
- - `text`: text entered by the user when sharing (**iOS only**)
- - `name`: suggested file name, generally undefined.
+ - `text`: page title or shared text appended with url at end.
  - `path`: path on the device, generally undefined.
- - `utis`: list of UTIs the file belongs to (**iOS only**).
- - `base64`: a long base64 string with the content of the file.
-   - _might be undefined until `load()` has been called and completed successfully._
 
 ### cordova.openwith.load(dataDescriptor, loadSuccessCallback, loadErrorCallback)
 
@@ -238,9 +240,9 @@ On Android, the app will be backgrounded no matter what.
 
 Contributions in the form of GitHub pull requests are welcome. Please adhere to the following guidelines:
   - Before embarking on a significant change, please create an issue to discuss the proposed change and ensure that it is likely to be merged.
-  - Follow the coding conventions used throughout the project. Many conventions are enforced using eslint and pmd. Run `npm t` to make sure of that.
+  - Follow the coding conventions used throughout the project. Many conventions are enforced using eslint and pmd. Run `npm test` or `yarn test` to make sure of that.
   - Any contributions must be licensed under the MIT license.
 
 ## License
 
-[MIT](./LICENSE) © Fovea.cc
+[MIT](./LICENSE) © Recifra
