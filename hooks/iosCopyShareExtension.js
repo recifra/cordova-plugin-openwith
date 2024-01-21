@@ -37,15 +37,6 @@ function redError(message) {
     return new Error('"' + PLUGIN_ID + '" \x1b[1m\x1b[31m' + message + '\x1b[0m');
 }
 
-function getPreferenceValue (config, name) {
-  var value = config.match(new RegExp('name="' + name + '" value="(.*?)"', "i"));
-  if(value && value[1]) {
-    return value[1];
-  } else {
-    return null;
-  }
-}
-
 console.log('Copying "' + PLUGIN_ID + '/ShareExtension" to ios...');
 
 // http://stackoverflow.com/a/26038979/5930772

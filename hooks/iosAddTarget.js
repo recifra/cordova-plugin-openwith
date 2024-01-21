@@ -191,24 +191,6 @@ function getShareExtensionFiles(context) {
   return files;
 }
 
-function printShareExtensionFiles(files) {
-  console.log('    Found following files in your ShareExtension folder:');
-  console.log('    Source files:');
-  files.source.forEach(function(file) {
-    console.log('     - ', file.name);
-  });
-
-  console.log('    Plist files:');
-  files.plist.forEach(function(file) {
-    console.log('     - ', file.name);
-  });
-
-  console.log('    Resource files:');
-  files.resource.forEach(function(file) {
-    console.log('     - ', file.name);
-  });
-}
-
 console.log('Adding target "' + PLUGIN_ID + '/ShareExtension" to XCode project');
 
 module.exports = function (context) {
@@ -217,10 +199,6 @@ module.exports = function (context) {
   var deferral = new Q.defer();
 
   packageJson = require(path.join(context.opts.projectRoot, 'package.json'));
-
-  // if (context.opts.cordova.platforms.indexOf('ios') < 0) {
-  //   log('You have to add the ios platform before adding this plugin!', 'error');
-  // }
 
   var configXml = fs.readFileSync(path.join(context.opts.projectRoot, 'config.xml'), 'utf-8');
   if (configXml) {
@@ -328,52 +306,6 @@ module.exports = function (context) {
         }
       }
     }
-
-    // Add a new PBXFrameworksBuildPhase for the Frameworks used by the Share Extension
-    // (NotificationCenter.framework, libCordova.a)
-    // var frameworksBuildPhase = pbxProject.addBuildPhase(
-    //   [],
-    //   'PBXFrameworksBuildPhase',
-    //   'Frameworks',
-    //   target.uuid
-    // );
-    // if (frameworksBuildPhase) {
-    //   log('Successfully added PBXFrameworksBuildPhase!', 'info');
-    // }
-
-    // Add the frameworks needed by our shareExtension, add them to the existing Frameworks PbxGroup and PBXFrameworksBuildPhase
-    // var frameworkFile1 = pbxProject.addFramework(
-    //   'NotificationCenter.framework',
-    //   { target: target.uuid }
-    // );
-    // var frameworkFile2 = pbxProject.addFramework('libCordova.a', {
-    //   target: target.uuid,
-    // }); // seems to work because the first target is built before the second one
-    // if (frameworkFile1 && frameworkFile2) {
-    //   log('Successfully added frameworks needed by the share extension!', 'info');
-    // }
-
-    // Add build settings for Swift support, bridging header and xcconfig files
-    // var configurations = pbxProject.pbxXCBuildConfigurationSection();
-    // for (var key in configurations) {
-    //   if (typeof configurations[key].buildSettings !== 'undefined') {
-    //     var buildSettingsObj = configurations[key].buildSettings;
-    //     if (typeof buildSettingsObj['PRODUCT_NAME'] !== 'undefined') {
-    //       var productName = buildSettingsObj['PRODUCT_NAME'];
-    //       if (productName.indexOf('ShareExtension') >= 0) {
-    //         if (addXcconfig) {
-    //           configurations[key].baseConfigurationReference =
-    //             xcconfigReference + ' /* ' + xcconfigFileName + ' */';
-    //           log('Added xcconfig file reference to build settings!', 'info');
-    //         }
-    //         if (addEntitlementsFile) {
-    //           buildSettingsObj['CODE_SIGN_ENTITLEMENTS'] = '"' + 'ShareExtension' + '/' + entitlementsFileName + '"';
-    //           log('Added entitlements file reference to build settings!', 'info');
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
 
     // Write the modified project back to disc
     // console.log('    Writing the modified project back to disk...');

@@ -30,7 +30,6 @@
 //
 
 const PLUGIN_ID = "cordova-plugin-openwith-ci";
-const BUNDLE_SUFFIX = ".shareextension";
 
 var fs = require('fs');
 var path = require('path');
@@ -160,56 +159,6 @@ module.exports = function (context) {
         pbxProject.removeResourceFile(file.name, {target: target.uuid}, pbxGroupKey);
       });
     }
-
-    // Add a new PBXFrameworksBuildPhase for the Frameworks used by the Share Extension
-    // (NotificationCenter.framework, libCordova.a)
-    // var frameworksBuildPhase = pbxProject.addBuildPhase(
-    //   [],
-    //   'PBXFrameworksBuildPhase',
-    //   'Frameworks',
-    //   target.uuid
-    // );
-    // if (frameworksBuildPhase) {
-    //   log('Successfully added PBXFrameworksBuildPhase!', 'info');
-    // }
-
-    // Add the frameworks needed by our shareExtension, add them to the existing Frameworks PbxGroup and PBXFrameworksBuildPhase
-    // var frameworkFile1 = pbxProject.addFramework(
-    //   'NotificationCenter.framework',
-    //   { target: target.uuid }
-    // );
-    // var frameworkFile2 = pbxProject.addFramework('libCordova.a', {
-    //   target: target.uuid,
-    // }); // seems to work because the first target is built before the second one
-    // if (frameworkFile1 && frameworkFile2) {
-    //   log('Successfully added frameworks needed by the share extension!', 'info');
-    // }
-
-    // if (resourcesBuildPhase) {
-    //   console.log('    Successfully added PBXResourcesBuildPhase!');
-    // }
-
-    // Add build settings for Swift support, bridging header and xcconfig files
-    // var configurations = pbxProject.pbxXCBuildConfigurationSection();
-    // for (var key in configurations) {
-    //   if (typeof configurations[key].buildSettings !== 'undefined') {
-    //     var buildSettingsObj = configurations[key].buildSettings;
-    //     if (typeof buildSettingsObj['PRODUCT_NAME'] !== 'undefined') {
-    //       var productName = buildSettingsObj['PRODUCT_NAME'];
-    //       if (productName.indexOf('ShareExtension') >= 0) {
-    //         if (addXcconfig) {
-    //           configurations[key].baseConfigurationReference =
-    //             xcconfigReference + ' /* ' + xcconfigFileName + ' */';
-    //           log('Added xcconfig file reference to build settings!', 'info');
-    //         }
-    //         if (addEntitlementsFile) {
-    //           buildSettingsObj['CODE_SIGN_ENTITLEMENTS'] = '"' + 'ShareExtension' + '/' + entitlementsFileName + '"';
-    //           log('Added entitlements file reference to build settings!', 'info');
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
 
     // Write the modified project back to disc
     // console.log('    Writing the modified project back to disk...');

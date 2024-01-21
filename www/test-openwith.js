@@ -1,24 +1,24 @@
 /* global describe it beforeEach */
-var openwith = require('./openwith')
-var expect = require('expect.js')
+const openwith = require('./openwith')
+const expect = require('expect.js')
 
 describe('openwith', () => {
-  var cordovaExecArgs
+  let cordovaExecArgs
 
-  var cordovaExecCallTo = function (method) {
+  const cordovaExecCallTo = function (method) {
     return cordovaExecArgs[method]
   }
 
   // cordova fail-over (to run tests)
-  var fakeCordova = () => {
+  const fakeCordova = () => {
     return {
       exec: function (successCallback, errorCallback, targetObject, method, args) {
         cordovaExecArgs[method] = {
-          successCallback: successCallback,
-          errorCallback: errorCallback,
-          targetObject: targetObject,
-          method: method,
-          args: args
+          successCallback,
+          errorCallback,
+          targetObject,
+          method,
+          args
         }
       }
     }
@@ -50,12 +50,12 @@ describe('openwith', () => {
       expect(openwith.init).withArgs(null, null).to.throwError()
     })
     it('accepts a success and error callback', () => {
-      var success = () => {}
-      var error = () => {}
+      const success = () => {}
+      const error = () => {}
       expect(openwith.init).withArgs(success, error).to.not.throwError()
     })
     it('rejects bad argument types', () => {
-      var cb = () => {}
+      const cb = () => {}
       expect(openwith.init).withArgs(cb, 1).to.throwError()
       expect(openwith.init).withArgs(1, cb).to.throwError()
     })
@@ -88,7 +88,7 @@ describe('openwith', () => {
     it('changes the native verbosity level', () => {
       openwith.setVerbosity(openwith.INFO)
       expect(cordovaExecCallTo('setVerbosity')).to.be.ok()
-      expect(cordovaExecCallTo('setVerbosity').args).to.eql([ openwith.INFO ])
+      expect(cordovaExecCallTo('setVerbosity').args).to.eql([openwith.INFO])
     })
   })
 
@@ -122,9 +122,9 @@ describe('openwith', () => {
   })
 
   describe('new file received', () => {
-    var onNewFile
-    var myHandlersArgs
-    var myHandlers
+    let onNewFile
+    let myHandlersArgs
+    let myHandlers
 
     // test what happens for received files,
     // this requires to hack into some internal, to trigger a new file event
@@ -149,7 +149,7 @@ describe('openwith', () => {
       })
 
       // trigger a new file event and check that the handlers have been called
-      var newFile = { test: 1 }
+      const newFile = { test: 1 }
       onNewFile(newFile)
       myHandlersArgs.forEach((args) => {
         expect(args).to.be.ok()
@@ -157,7 +157,7 @@ describe('openwith', () => {
       })
 
       // do it again with another pseudo "file"
-      var newFile2 = { test: 2 }
+      const newFile2 = { test: 2 }
       onNewFile(newFile2)
       myHandlersArgs.forEach((args) => {
         expect(args[0]).to.equal(newFile2)
@@ -165,7 +165,7 @@ describe('openwith', () => {
     })
 
     it('triggers for handlers added after the new file is received', () => {
-      var newFile = { test: 3 }
+      const newFile = { test: 3 }
       onNewFile(newFile)
       myHandlers.forEach(openwith.addHandler)
       myHandlersArgs.forEach((args) => {
