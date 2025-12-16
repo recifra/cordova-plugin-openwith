@@ -33,6 +33,7 @@ const PLUGIN_ID = 'cordova-plugin-openwith-ci'
 const BUNDLE_SUFFIX = '.shareextension'
 
 const fs = require('fs')
+const plist = require('plist')
 const path = require('path')
 let packageJson
 let bundleIdentifier
@@ -41,8 +42,24 @@ function redError (message) {
   return new Error('"' + PLUGIN_ID + '" \x1b[1m\x1b[31m' + message + '\x1b[0m')
 }
 
-function replacePreferencesInFile (filePath, preferences) {
-  let content = fs.readFileSync(filePath, 'utf8')
+function replacePreferencesInFile (filePath, preferences, asEntitlements) {
+  let content
+  try {
+    content = fs.readFileSync(filePath, 'utf8')
+    if (asEntitlements) {
+      const entitlements = plist.parse(content)
+      entitlements['com.apple.security.application-groups'] = '__GROUP_IDENTIFIER__'
+      content = plist.build(entitlements)
+    }
+  } catch (error) {
+    if (!asEntitlements) {
+      throw error
+    }
+    const entitlements = {
+      'com.apple.security.application-groups': '__GROUP_IDENTIFIER__'
+    }
+    content = plist.build(entitlements)
+  }
   for (let i = 0; i < preferences.length; i++) {
     const pref = preferences[i]
     const regexp = new RegExp(pref.key, 'g')
@@ -254,12 +271,21 @@ module.exports = function (context) {
     const pbxProject = parsePbxProject(context, pbxProjectPath)
 
     const files = getShareExtensionFiles(context)
-    // printShareExtensionFiles(files);
+    // inject entitlements at a common place (allow merge with Apple sign in)
+    const entitlementsName = projectName + '.entitlements'
+    const baseEntitlementsPath = path.join(projectName, 'Resources', entitlementsName)
+    const entitlementsFile = {
+      name: entitlementsName,
+      path: path.join(iosFolder(context), baseEntitlementsPath),
+      extension: path.extname(entitlementsName)
+    }
+    const mkpath = require('mkpath')
+    mkpath.sync(path.dirname(entitlementsFile.path))
+    files.plist.push(entitlementsFile)
 
     const preferences = getPreferences(context, configXml, projectName)
     files.plist.concat(files.source).forEach(function (file) {
-      replacePreferencesInFile(file.path, preferences)
-      // console.log('    Successfully updated ' + file.name);
+      replacePreferencesInFile(file.path, preferences, file.extension === entitlementsFile.extension)
     })
 
     // Find if the project already contains the target and group
@@ -339,8 +365,7 @@ module.exports = function (context) {
       if (typeof configurations[key].buildSettings !== 'undefined') {
         const buildSettingsObj = configurations[key].buildSettings
         if (typeof buildSettingsObj.PRODUCT_NAME !== 'undefined') {
-          buildSettingsObj.CODE_SIGN_ENTITLEMENTS =
-            '"ShareExtension/ShareExtension-Entitlements.plist"'
+          buildSettingsObj.CODE_SIGN_ENTITLEMENTS = `"${baseEntitlementsPath}"`
           const productName = buildSettingsObj.PRODUCT_NAME
           if (productName.indexOf('ShareExt') >= 0) {
             buildSettingsObj.PRODUCT_BUNDLE_IDENTIFIER =

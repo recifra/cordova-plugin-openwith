@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-openwith-ci",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Cordova \"Open With\" plugin for iOS and Android",
   "cordova": {
     "id": "cordova-plugin-openwith-ci",
@@ -68,7 +68,6 @@
     "src/android/cc/fovea/openwith/Serializer.java",
     "src/ios/OpenWithPlugin.m",
     "src/ios/ShareExtension/MainInterface.storyboard",
-    "src/ios/ShareExtension/ShareExtension-Entitlements.plist",
     "src/ios/ShareExtension/ShareExtension-Info.plist",
     "src/ios/ShareExtension/ShareViewController.h",
     "src/ios/ShareExtension/ShareViewController.m",

@@ -134,7 +134,8 @@ module.exports = function (context) {
     const files = getShareExtensionFiles(context)
 
     // Find if the project already contains the target and group
-    const target = pbxProject.pbxTargetByName('ShareExtension')
+    const target = pbxProject.pbxTargetByName('ShareExt') ||
+      pbxProject.pbxTargetByName('"ShareExt"')
     const pbxGroupKey = pbxProject.findPBXGroupKey({ name: 'ShareExtension' })
 
     // Remove the PbxGroup from cordovas "CustomTemplate"-group
@@ -150,22 +151,24 @@ module.exports = function (context) {
       })
 
       // Remove source files to our PbxGroup and our newly created PBXSourcesBuildPhase
-      files.source.forEach(function (file) {
-        pbxProject.removeSourceFile(
-          file.name,
-          { target: target.uuid },
-          pbxGroupKey
-        )
-      })
+      if (target) {
+        files.source.forEach(function (file) {
+          pbxProject.removeSourceFile(
+            file.name,
+            { target: target.uuid },
+            pbxGroupKey
+          )
+        })
 
-      //  Remove the resource file and include it into the targest PbxResourcesBuildPhase and PbxGroup
-      files.resource.forEach(function (file) {
-        pbxProject.removeResourceFile(
-          file.name,
-          { target: target.uuid },
-          pbxGroupKey
-        )
-      })
+        //  Remove the resource file and include it into the targest PbxResourcesBuildPhase and PbxGroup
+        files.resource.forEach(function (file) {
+          pbxProject.removeResourceFile(
+            file.name,
+            { target: target.uuid },
+            pbxGroupKey
+          )
+        })
+      }
     }
 
     // Write the modified project back to disc
